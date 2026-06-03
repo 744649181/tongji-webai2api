@@ -9,6 +9,7 @@ set "YELLOW=[93m"
 set "RED=[91m"
 set "CYAN=[96m"
 set "GRAY=[90m"
+set "BOLD=[1m"
 set "RESET=[0m"
 
 REM --- Sanity checks ---
@@ -98,6 +99,16 @@ echo %CYAN%========================================%RESET%
 echo %GREEN%  Server is running on http://127.0.0.1:3000%RESET%
 echo %CYAN%========================================%RESET%
 echo(
+
+REM Show API key (parse YAML via node to avoid cmd paren issues)
+set "API_KEY="
+for /f "delims=" %%k in ('node -e "const c=require('fs').readFileSync('data\config.yaml','utf8');const m=c.match(/^\s*auth:\s*['\x22]?([^\x22'\s]+)['\x22]?/m);process.stdout.write(m?m[1]:'')" 2^>nul') do set "API_KEY=%%k"
+if defined API_KEY (
+    echo   %GRAY%API key:%RESET%    %BOLD%%API_KEY%%RESET%
+) else (
+    echo   %GRAY%API key:%RESET%    not found in data\config.yaml
+)
+
 echo   WebUI (admin dashboard):  http://127.0.0.1:3000/
 echo     - run %CYAN%open-webui.bat%RESET% to open in your browser
 echo     - or visit the URL above directly
@@ -113,5 +124,6 @@ echo   Other commands:
 echo     status.bat  - check status and view logs
 echo     stop.bat    - stop the server
 echo     login.bat   - re-login - refresh SSO cookies
+echo     get-key.bat - print the API key to console
 echo(
 exit /b 0
