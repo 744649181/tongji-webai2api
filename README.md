@@ -4,6 +4,7 @@
 
 | | |
 |---|---|
+| **Repo** | https://github.com/744649181/tongji-webai2api |
 | **License** | MIT (forked from [foxhui/WebAI2API](https://github.com/foxhui/WebAI2API)) |
 | **Version** | 3.1.0 |
 | **Platforms** | Windows / macOS / Linux |
@@ -35,7 +36,7 @@ Once running locally, you get an OpenAI-compatible endpoint at `http://127.0.0.1
 ### Windows
 
 ```bat
-git clone https://github.com/<your-username>/tongji-webai2api.git
+git clone https://github.com/744649181/tongji-webai2api.git
 cd tongji-webai2api
 install.bat        :: install deps + generate API key
 login.bat         :: opens browser, complete SSO once
@@ -45,7 +46,7 @@ start.bat         :: starts server in background
 ### macOS / Linux
 
 ```bash
-git clone https://github.com/<your-username>/tongji-webai2api.git
+git clone https://github.com/744649181/tongji-webai2api.git
 cd tongji-webai2api
 chmod +x *.sh
 ./install.sh
@@ -303,4 +304,4 @@ If you want to contribute these changes back upstream, see [`UPSTREAM_PR.md`](./
 
 ## License
 
-MIT. See [`LICENSE`](./LICENSE). Original framework © [foxhui](https://github.com/foxhui/WebAI2API); tongji adapter + v2 framework + docs by [LyonBian](https://github.com/your-username).
+MIT. See [`LICENSE`](./LICENSE). Original framework © [foxhui](https://github.com/foxhui/WebAI2API); tongji adapter + v2 framework + docs by [LyonBian](https://github.com/744649181).

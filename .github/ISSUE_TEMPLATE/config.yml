@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/744649181/tongji-webai2api#readme
+    about: Read the README and troubleshooting FAQ first
+  - name: Upstream webai-2api
+    url: https://github.com/foxhui/WebAI2API
+    about: For issues common to all 19 upstream adapters

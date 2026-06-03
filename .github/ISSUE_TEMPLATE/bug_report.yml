@@ -1,0 +1,97 @@
+name: Bug report
+description: Report something that's broken or behaving wrong
+title: "[bug] "
+labels: ["bug"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out the template below so we can reproduce and fix it.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear, concise description of the bug.
+      placeholder: |
+        Streaming output cuts off mid-response. /v1/chat/completions returns the first ~10 tokens then sends [DONE] prematurely.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      description: What you expected vs. what actually happened.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps to reproduce the behavior.
+      placeholder: |
+        1. Run `start.bat`
+        2. curl -N http://127.0.0.1:3000/v1/chat/completions ...
+        3. See response truncated
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Output from `data/logs/system.log` or the terminal where supervisor is running.
+      render: shell
+      placeholder: |
+        ```
+        2026-06-03 12:34:56 [INFO] [tongji] 上传 prompt ...
+        2026-06-03 12:34:57 [ERROR] ...
+        ```
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS
+        - Ubuntu
+        - Other Linux
+      validations:
+        required: true
+
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js version
+      placeholder: "20.10.0"
+    validations:
+      required: true
+
+  - type: input
+    id: model
+    attributes:
+      label: Model ID
+      description: Which model were you calling? (e.g. `DeepSeek-V4-Pro`, `GLM-5.1`)
+      placeholder: "DeepSeek-V4-Pro"
+
+  - type: input
+    id: api-version
+    attributes:
+      label: tongji-webai2api version
+      description: Run `git rev-parse --short HEAD` in the repo, or check package.json.
+      placeholder: "3.1.0 (916ba24)"
+
+  - type: checkboxes
+    id: check
+    attributes:
+      label: Pre-flight
+      options:
+        - label: I ran `status.bat` / `./status.sh` and the server reports UP
+        - label: I checked `data/logs/system.log` and the issue is NOT a transient network/SSO error
+        - label: I am using the latest commit on `main`
+        - label: I have not disabled any of the existing `process.on('uncaughtException')` filters

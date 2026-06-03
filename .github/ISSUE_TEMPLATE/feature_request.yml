@@ -1,0 +1,56 @@
+name: Feature request
+description: Suggest a new feature or improvement
+title: "[feature] "
+labels: ["enhancement"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to suggest a feature! A few quick questions to help us understand it.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: What's the use case? Why is the current behavior limiting?
+      placeholder: |
+        I want to use tongji-webai2api as the backend for a coding agent (Continue.dev). I need stream=true + a system prompt + the ability to attach files.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How should this work? API example, config snippet, etc.
+      placeholder: |
+        Add a `system` field support: when the messages array has `{role: 'system', content: '...'}`, prepend it to the BatchCreateMessages body.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches did you think about? Why is your proposal better?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - Adapter only (`src/backend/adapter/tongji.js`)
+        - Framework (queue / respond / registry)
+        - One-click scripts (install / start / login)
+        - Documentation
+        - Other
+
+  - type: checkboxes
+    id: contrib
+    attributes:
+      label: Contribution
+      options:
+        - label: I'm willing to submit a PR for this

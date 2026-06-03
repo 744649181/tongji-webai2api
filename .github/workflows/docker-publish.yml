@@ -10,7 +10,7 @@ on:
         default: 'Manual build update'
 
 env:
-  IMAGE_NAME: foxhui/webai-2api
+  IMAGE_NAME: 744649181/tongji-webai2api
 
 jobs:
   build-and-push:

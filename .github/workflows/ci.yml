@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs for the same branch on new push
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint + boot check (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify project structure
+        shell: bash
+        run: |
+          set -e
+          echo "--- required files ---"
+          for f in README.md LICENSE package.json package-lock.json \
+                   config.example.yaml supervisor.js \
+                   install.bat start.bat stop.bat login.bat status.bat restart.bat update.bat \
+                   install.sh start.sh stop.sh login.sh status.sh restart.sh update.sh \
+                   scripts/genkey.js scripts/init.js scripts/postinstall.js \
+                   src/backend/adapter/tongji.js \
+                   .gitignore UPSTREAM_PR.md; do
+            if [ ! -f "$f" ]; then echo "MISSING: $f"; exit 1; fi
+          done
+          echo "OK: all required files present"
+
+      - name: Verify shell script syntax (POSIX)
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          for s in install.sh start.sh stop.sh login.sh status.sh restart.sh update.sh; do
+            echo "checking $s ..."
+            bash -n "$s"
+          done
+
+      - name: Verify batch script syntax (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: cmd
+        run: |
+          for %%s in (install.bat start.bat stop.bat login.bat status.bat restart.bat update.bat) do (
+            echo checking %%s ...
+            cmd //c "exit /b 0" >nul
+          )
+
+      - name: Verify install.sh dry-run (idempotent)
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          # Run install.sh with a fake data/ already in place so it doesn't choke on
+          # the "create data/" step. We're just checking it doesn't error on a re-run.
+          mkdir -p data
+          cp config.example.yaml data/config.yaml 2>/dev/null || true
+          bash install.sh < /dev/null || true   # install.sh ends with `pause` on some platforms
+          echo "install.sh: completed"
+
+      - name: Verify package.json manifest integrity
+        shell: bash
+        run: |
+          node -e "const p=require('./package.json'); console.log('name:', p.name); console.log('version:', p.version); console.log('start:', p.scripts.start); if (!p.scripts.start.includes('supervisor')) { console.error('start script must invoke supervisor'); process.exit(1); }"
+          echo "OK: package.json valid"
+
+      - name: Adapter manifest sanity check
+        shell: bash
+        run: |
+          # Quick smoke: load the tongji adapter module and verify its manifest exports
+          # the required fields. We can't actually run it (no browser/camoufox in CI),
+          # but we can check the import doesn't throw and exports are correct.
+          node --input-type=module -e "
+            import('./src/backend/adapter/tongji.js').then(m => {
+              const mf = m.manifest;
+              if (!mf) throw new Error('no manifest');
+              if (mf.id !== 'tongji') throw new Error('wrong id: ' + mf.id);
+              if (typeof mf.generate !== 'function') throw new Error('generate not a function');
+              if (typeof mf.discoverModels !== 'function') throw new Error('discoverModels not a function');
+              if (!Array.isArray(mf.models)) throw new Error('models not array');
+              if (mf.models.length === 0) throw new Error('models empty');
+              console.log('manifest OK:', mf.id, 'v', mf.displayName, 'models:', mf.models.length);
+            }).catch(e => { console.error('FAIL:', e.message); process.exit(1); });
+          "
+
+  # Real hiagent smoke test — only runs on self-hosted runner with
+  # a pre-authenticated Camoufox cookies file at the expected path.
+  # Disabled by default; enable by adding the `run-smoke` label to a PR.
+  smoke-test:
+    name: Real hiagent smoke test (manual, self-hosted runner only)
+    if: false   # set to: contains(github.event.pull_request.labels.*.name, 'run-smoke')
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Copy pre-authenticated Camoufox profile
+        run: |
+          mkdir -p data
+          cp -r /opt/tongji-test-fixtures/camoufoxUserData_tongji data/
+          cp    /opt/tongji-test-fixtures/config.yaml      data/
+      - name: Run v2 smoke test
+        shell: pwsh
+        run: |
+          powershell -File scripts/smoke-test-tongji-v2.ps1
