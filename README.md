@@ -63,6 +63,8 @@ After `start.bat` / `./start.sh` reports `Server is running on http://127.0.0.1:
 | `install.bat` | `./install.sh` | First-time setup (Node check, deps, init, generate API key) |
 | `login.bat`   | `./login.sh`   | Open browser, complete SSO, save cookies |
 | `start.bat`   | `./start.sh`   | Start supervisor in background |
+| `open-webui.bat` | `./open-webui.sh` | Open the WebUI admin panel in your browser |
+| `tray.bat`   | _(n/a — Windows only)_ | Launch the **floating window** in the system tray (one-click everything) |
 | `status.bat`  | `./status.sh`  | Show PID, port, last 12 log lines |
 | `stop.bat`    | `./stop.sh`    | Stop the server |
 | `restart.bat` | `./restart.sh` | Stop + start |
@@ -87,6 +89,42 @@ Settings → Model Provider → Add → Custom OpenAI-compatible:
 ### Cherry Studio, Lobe Chat, Continue.dev, etc.
 
 Same fields. Set the API host to `http://127.0.0.1:3000` and the model to any of the 25+ discovered.
+
+### Web admin panel (built-in)
+
+Once the server is running, open **http://127.0.0.1:3000/** in your browser. You'll get a full Vue 3 admin UI:
+
+- **Dashboard** — live status of every worker, browser session, queue depth
+- **Settings** — edit `config.yaml` fields in-place (server, browser, pool, workers, adapters)
+- **Tools / Logs** — tail `data/logs/system.log` with filter
+- **Tools / Request** — see every incoming `/v1/chat/completions` request + its response (for debugging)
+- **Tools / Display** — toggle `imageMarkdown` for the API output
+- **VNC Viewer** — see the Camoufox browser screen live (for debugging "why is it clicking the wrong button")
+
+`open-webui.bat` / `./open-webui.sh` opens this in your default browser with one click.
+
+### Windows system tray (floating window)
+
+Want to ditch the cmd window? Run `tray.bat`. You'll get a small icon in the system tray with a right-click menu:
+
+```
+├─ Open WebUI in browser
+├─ Open admin panel
+├─ Status: UP - http://127.0.0.1:3000     ← updates every 5s
+├─ Start / Stop / Restart server
+├─ Re-login (refresh SSO cookies)
+├─ Open logs folder / data folder / project folder
+├─ Auto-start at Windows login  (toggle)
+├─ Open README
+└─ Quit tray (server keeps running)
+```
+
+- **Double-click** the tray icon to open the WebUI.
+- **Auto-start at login** writes a `HKCU\...\Run` entry pointing at this script.
+- **Restart** talks to the supervisor's named-pipe IPC directly (no `stop.bat` then `start.bat` race).
+- The tray does **not** start the server on its own; you still run `start.bat` once per session (or use auto-start for that too — open `update.bat` and add a scheduled task).
+
+If the tray icon never appears, check `data/logs/system.log` — the supervisor might have failed preflight.
 
 ### `curl`
 

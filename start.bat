@@ -98,12 +98,20 @@ echo %CYAN%========================================%RESET%
 echo %GREEN%  Server is running on http://127.0.0.1:3000%RESET%
 echo %CYAN%========================================%RESET%
 echo(
-echo   Commands:
+echo   WebUI (admin dashboard):  http://127.0.0.1:3000/
+echo     - run %CYAN%open-webui.bat%RESET% to open in your browser
+echo     - or visit the URL above directly
+echo(
+echo   OpenAI API endpoint:     http://127.0.0.1:3000/v1
+echo     Test:
+echo       curl http://127.0.0.1:3000/v1/models -H "Authorization: Bearer YOUR_KEY"
+echo(
+echo   Floating window (system tray):  run %CYAN%tray.bat%RESET% for
+echo     one-click Start/Stop/Restart/Open WebUI/Quit from the taskbar.
+echo(
+echo   Other commands:
 echo     status.bat  - check status and view logs
 echo     stop.bat    - stop the server
 echo     login.bat   - re-login - refresh SSO cookies
-echo(
-echo   Test:
-echo     curl http://127.0.0.1:3000/v1/models -H "Authorization: Bearer YOUR_KEY"
 echo(
 exit /b 0
