@@ -2,6 +2,13 @@
 node_modules/
 .pnpm-store/
 
+# pnpm artifacts (project uses npm; pnpm-lock.yaml is no-op leftover)
+pnpm-lock.yaml
+
+# startup / supervisor logs
+startup.log
+startup.err
+
 # runtime data (cookies, history, logs, API keys)
 data/
 camoufox/

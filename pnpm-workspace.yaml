@@ -1,5 +1,5 @@
-ignoredBuiltDependencies:
-  - better-sqlite3
-
 packages:
   - '!webui/**'
+allowBuilds:
+  better-sqlite3: set this to true or false
+  sharp: set this to true or false
