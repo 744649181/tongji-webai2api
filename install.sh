@@ -23,7 +23,7 @@ echo -e "${CYAN}========================================${RESET}"
 echo
 
 # --- Step 1: Check Node.js ---
-echo -e "${GRAY}[1/5]${RESET} Checking Node.js..."
+echo -e "${GRAY}[1/6]${RESET} Checking Node.js..."
 if ! command -v node >/dev/null 2>&1; then
     echo -e "${RED}[X] Node.js not found${RESET}"
     echo
@@ -36,12 +36,12 @@ echo -e "${GREEN}[OK] Node.js $NODE_VER found${RESET}"
 echo
 
 # --- Step 2: Install dependencies ---
-echo -e "${GRAY}[2/5]${RESET} Installing dependencies (npm ci)..."
+echo -e "${GRAY}[2/6]${RESET} Installing dependencies (npm ci)..."
 if [ ! -d node_modules ]; then
     if [ ! -f package-lock.json ]; then
         echo -e "${RED}[X] package-lock.json missing${RESET}"
         echo "    This repo should ship with one. Did you download the source as a .zip?"
-        echo "    Use: git clone https://github.com/<user>/tongji-webai2api.git"
+        echo "    Use: git clone https://github.com/744649181/tongji-webai2api.git"
         exit 1
     fi
     npm ci
@@ -52,13 +52,13 @@ fi
 echo
 
 # --- Step 3: Create data/ if missing ---
-echo -e "${GRAY}[3/5]${RESET} Setting up data/ directory..."
+echo -e "${GRAY}[3/6]${RESET} Setting up data/ directory..."
 mkdir -p data/logs data/temp
 echo -e "${GREEN}[OK] data/ ready${RESET}"
 echo
 
 # --- Step 4: Copy config.example.yaml if no data/config.yaml ---
-echo -e "${GRAY}[4/5]${RESET} Setting up data/config.yaml..."
+echo -e "${GRAY}[4/6]${RESET} Setting up data/config.yaml..."
 if [ ! -f data/config.yaml ]; then
     if [ -f config.example.yaml ]; then
         cp config.example.yaml data/config.yaml
@@ -72,8 +72,43 @@ else
 fi
 echo
 
-# --- Step 5: Check API key, generate if placeholder ---
-echo -e "${GRAY}[5/5]${RESET} Checking API key..."
+# --- Step 5: Download Camoufox browser + GeoLite2 (via scripts/init.js) ---
+# This is what fills camoufox/camoufox, camoufox/version.json, camoufox/GeoLite2-City.mmdb
+# which the server's preflight check requires.
+echo -e "${GRAY}[5/6]${RESET} Verifying Camoufox browser..."
+NEEDS_CAMOUFOX=1
+if [ -f camoufox/camoufox.exe ] || [ -f camoufox/camoufox ] || [ -f camoufox/Camoufox.app/Contents/MacOS/camoufox ]; then
+    NEEDS_CAMOUFOX=0
+fi
+if [ -f camoufox/version.json ] && [ -f camoufox/GeoLite2-City.mmdb ]; then
+    NEEDS_CAMOUFOX=0
+fi
+
+if [ "$NEEDS_CAMOUFOX" -eq 0 ]; then
+    echo -e "${GREEN}[OK] Camoufox browser already installed${RESET}"
+else
+    echo "    Downloading Camoufox browser + GeoLite2 (this can take a few minutes)..."
+    echo "    this requires network access to github.com"
+    if npm run init; then
+        echo -e "${GREEN}[OK] Camoufox browser + GeoLite2 ready${RESET}"
+    else
+        echo
+        echo -e "${RED}[X] Camoufox download failed.${RESET}"
+        echo "    This usually means your network cannot reach github.com."
+        echo
+        echo "    Options:"
+        echo "      1. Configure a proxy:  npm run init -- -proxy=http://127.0.0.1:7890"
+        echo "      2. Try again later when network is available."
+        echo "      3. Ask the maintainer for an offline tarball of camoufox/."
+        echo
+        echo "    You can re-run this step manually with:  npm run init"
+        exit 1
+    fi
+fi
+echo
+
+# --- Step 6: Check API key, generate if placeholder ---
+echo -e "${GRAY}[6/6]${RESET} Checking API key..."
 if grep -q "sk-xxxxxxxx" data/config.yaml; then
     echo -e "${YELLOW}[!]${RESET} API key in data/config.yaml is still the placeholder"
     echo -e "${GRAY}    Generating a new one...${RESET}"

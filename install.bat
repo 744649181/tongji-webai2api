@@ -24,7 +24,7 @@ echo %CYAN%========================================%RESET%
 echo.
 
 REM --- Step 1: Check Node.js ---
-echo %GRAY%[1/5]%RESET% Checking Node.js...
+echo %GRAY%[1/6]%RESET% Checking Node.js...
 where node >nul 2>&1
 if errorlevel 1 goto :no_node
 for /f "tokens=1 delims=v" %%i in ('node -v') do set "NODE_VER=%%i"
@@ -43,7 +43,7 @@ exit /b 1
 
 :step2
 REM --- Step 2: Install dependencies ---
-echo %GRAY%[2/5]%RESET% Installing dependencies - npm ci...
+echo %GRAY%[2/6]%RESET% Installing dependencies - npm ci...
 if exist node_modules goto :deps_present
 if not exist package-lock.json goto :no_lockfile
 echo     running npm ci, please wait...
@@ -76,7 +76,7 @@ exit /b 1
 
 :step3
 REM --- Step 3: Create data/ if missing ---
-echo %GRAY%[3/5]%RESET% Setting up data/ directory...
+echo %GRAY%[3/6]%RESET% Setting up data/ directory...
 if not exist data mkdir data
 if not exist data\logs mkdir data\logs
 if not exist data\temp mkdir data\temp
@@ -84,11 +84,11 @@ echo %GREEN%[OK]%RESET% data/ ready
 echo.
 
 REM --- Step 4: Copy config.example.yaml if no data/config.yaml ---
-echo %GRAY%[4/5]%RESET% Setting up data\config.yaml...
+echo %GRAY%[4/6]%RESET% Setting up data\config.yaml...
 if not exist data\config.yaml goto :need_config_copy
 echo %GREEN%[OK]%RESET% data\config.yaml already exists - skipping
 echo.
-goto :step5
+goto :step4b
 
 :need_config_copy
 if exist config.example.yaml goto :have_example
@@ -102,9 +102,45 @@ copy /Y config.example.yaml data\config.yaml >nul
 echo %GREEN%[OK]%RESET% copied config.example.yaml -^> data\config.yaml
 echo.
 
+:step4b
+REM --- Step 4b: Download Camoufox browser + GeoLite2 (via scripts/init.js) ---
+REM This is what fills camoufox\camoufox.exe, camoufox\version.json, camoufox\GeoLite2-City.mmdb
+REM which the server's preflight check requires.
+if exist camoufox\camoufox.exe goto :camoufox_present
+if exist camoufox\camoufox goto :camoufox_present
+if exist camoufox\Camoufox.app\Contents\MacOS\camoufox goto :camoufox_present
+echo %GRAY%[5/6]%RESET% Downloading Camoufox browser + GeoLite2 (this can take a few minutes)...
+echo     this requires network access to github.com
+call npm run init
+if errorlevel 1 goto :camoufox_failed
+goto :camoufox_ok
+
+:camoufox_failed
+echo.
+echo %RED%[X] Camoufox download failed.%RESET%
+echo    This usually means your network cannot reach github.com.
+echo.
+echo    Options:
+echo      1. Configure a proxy:  npm run init -- -proxy=http://127.0.0.1:7890
+echo      2. Try again later when network is available.
+echo      3. Ask the maintainer for an offline tarball of camoufox\.
+echo.
+echo    You can re-run this step manually with:  npm run init
+echo.
+pause
+exit /b 1
+
+:camoufox_ok
+echo %GREEN%[OK]%RESET% Camoufox browser + GeoLite2 ready
+echo.
+
+:camoufox_present
+echo %GREEN%[OK]%RESET% Camoufox browser already installed
+echo.
+
 :step5
 REM --- Step 5: Initialize database + check API key ---
-echo %GRAY%[5/5]%RESET% Initializing SQLite database...
+echo %GRAY%[6/6]%RESET% Initializing SQLite database...
 if exist data\history.db goto :db_present
 echo     creating empty data\history.db ...
 node -e "try{require('better-sqlite3');}catch(e){console.error('better-sqlite3 not loadable:',e.message);process.exit(1);}" 2>nul
