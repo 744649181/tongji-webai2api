@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-06-03
+
+### ✨ Added — this fork
+- **New adapter: `tongji`** — production-grade support for `agent.tongji.edu.cn` hiagent MaaS platform. Pure-HTTP, OpenAI SSE compatible. 25+ LLM models auto-discovered.
+- **v2 framework (backward-compatible)**:
+  - `src/server/respond.js`: `buildChatCompletionDelta` + `buildStableChatId` for streaming chunks.
+  - `src/server/queue.js`: `onDelta` callback + adaptive heartbeat (only fires after 3 s of silence) + `streamedByAdapter` path.
+  - `src/server/api/openai/parse.js`: pass-through of raw `messages[]` array.
+  - `src/server/api/openai/routes.js`: forwards `messages` into `addTask` meta.
+  - `src/backend/registry.js`: `validateManifest` allows `models: []` if `discoverModels` is provided; new `setDynamicModels` + merged `getModelsForAdapter` (static ∪ dynamic).
+  - `src/backend/pool/Worker.js`: calls `discoverModels` after init, registers in registry.
+- **One-click scripts** (Windows + Linux/macOS): `install`, `start`, `stop`, `login`, `status`, `restart`, `update`. Idempotent, colored output, friendly error messages.
+- **`scripts/smoke-test-tongji-v2.ps1`** — 4-feature end-to-end test (streaming / multi-turn / dynamic-models / model-switch), all PASS.
+- **`scripts/capture-tongji.js`** — DevTools console capture script for reverse-engineering the hiagent API.
+- **`UPSTREAM_PR.md`** — recipes to cherry-pick the v2 changes back to foxhui/WebAI2API as a PR.
+
+### 🔧 Changed
+- `package.json`: renamed to `tongji-webai2api`, version 3.1.0, updated description + author.
+- `.gitignore`: hardened (excludes `data/`, `camoufox/`, `config.yaml`, `AGENTS.md`, `CLAUDE.md`, `.claude/`, `memory/`, `pnpm-lock.yaml`).
+- README rewritten for promotion: English-first, 3-step quickstart, model table, Chatbox/Cherry Studio/curl integration, troubleshooting FAQ.
+- Switched install path from `pnpm install` to `npm ci` (pnpm 11 fails on `better-sqlite3`/`sharp` native builds without Visual Studio Build Tools; npm uses prebuilt binaries).
+
+### 🐛 Fixed
+- None specific to the fork (upstream v3.0.0 bugs remain; v2 framework changes are additive).
+
+### 🔐 Notes
+- v2 streaming design: `page.evaluate` does single `fetch + res.text()`; Node side parses SSE frames and feeds `onDelta` with 15 ms inter-frame pause. Simpler than `page.exposeFunction` + stream reader; server → client is still true SSE token-by-token.
+- Multi-turn: hiagent's `BatchCreateMessages` silently discards 2nd+ entries in `MessageList[]` despite the name. True multi-turn = per-HTTP-call uploads + server-side `SessionID` history join. Adapter only uploads the last user message.
+- All upstream v3.0.0 adapters preserved.
+
+---
+
+## [3.0.0] - 2026-06-02 (upstream baseline)
+
+The base of this fork. See [foxhui/WebAI2API](https://github.com/foxhui/WebAI2API) for full history.
+
 ## [3.6.7] - 2026-04-24
 
 ### 🐛 Fixed

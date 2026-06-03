@@ -1,35 +1,47 @@
-# dependencies
+# ============================================
+# Dependencies & package managers
+# ============================================
 node_modules/
 .pnpm-store/
 
-# pnpm artifacts (project uses npm; pnpm-lock.yaml is no-op leftover)
+# pnpm artifacts (project uses npm; pnpm-lock.yaml is a no-op leftover)
 pnpm-lock.yaml
 
-# startup / supervisor logs
-startup.log
-startup.err
-
-# runtime data (cookies, history, logs, API keys)
+# ============================================
+# Runtime data (cookies, history, logs, API keys)
+# ============================================
 data/
 camoufox/
 
-# user config (has API key)
+# User config (has API key)
 config.yaml
 
-# dev tooling (project-local)
+# ============================================
+# Dev tooling (project-local) — auto-bootstrapped by Claude Code, not part of the project
+# ============================================
 .claude/
 .playwright-mcp/
 memory/
+AGENTS.md
+CLAUDE.md
 
-# smoke test artifacts
-smoke-test*.log
-smoke-test*.err
+# ============================================
+# Logs and transient files
+# ============================================
+startup.log
+startup.err
+*.log
+*.err
 
-# browser captures (contain network traces, even redacted)
+# ============================================
+# Browser captures (contain network traces, even redacted)
+# ============================================
 tongji-capture-*.json
 *-capture.json
 
-# editor / OS
+# ============================================
+# Editor / OS
+# ============================================
 .vscode/
 .idea/
 *.swp
