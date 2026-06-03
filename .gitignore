@@ -1,0 +1,31 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# runtime data (cookies, history, logs, API keys)
+data/
+camoufox/
+
+# user config (has API key)
+config.yaml
+
+# dev tooling (project-local)
+.claude/
+.playwright-mcp/
+memory/
+
+# smoke test artifacts
+smoke-test*.log
+smoke-test*.err
+
+# browser captures (contain network traces, even redacted)
+tongji-capture-*.json
+*-capture.json
+
+# editor / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
