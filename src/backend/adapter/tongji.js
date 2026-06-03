@@ -220,36 +220,45 @@ async function ensureSession(page, requestedModelName, meta = {}) {
  * @param {object} [opts]
  * @returns {Promise<{fullText: string, reasoningText: string}>}
  */
-async function streamChat(page, session, messageId, onDelta, { timeoutMs = 120000 } = {}) {
+async function streamChat(page, session, messageId, onDelta, { timeoutMs = 300000 } = {}) {
     const url = `/api/bypass/aigw?Action=Chat&${API_QUERY}`;
     const body = { SessionID: session.sessionId, MessageID: messageId, WorkspaceID: WORKSPACE_ID };
 
     // page 端:单次 fetch 拉完整 body(简化:不暴露 ReadableStream reader)
-    const result = await page.evaluate(async ({ url, body, timeoutMs }) => {
-        const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), timeoutMs);
-        try {
-            const m = document.cookie.match(/x-csrf-token=([^;]+)/);
-            const csrf = m ? decodeURIComponent(m[1]) : '';
-            const res = await fetch(url, {
-                method: 'POST',
-                credentials: 'include',
-                headers: {
-                    'Accept': 'text/event-stream',
-                    'Content-Type': 'application/json',
-                    'x-csrf-token': csrf,
-                    'x-top-region': 'cn-north-1',
-                    'accept-language': 'zh',
-                },
-                body: JSON.stringify(body),
-                signal: ctrl.signal,
-            });
-            if (!res.ok) return { ok: false, status: res.status, error: `HTTP ${res.status}`, body: null };
-            return { ok: true, status: res.status, body: await res.text() };
-        } catch (e) {
-            return { ok: false, status: 0, error: e.message || String(e), body: null };
-        } finally { clearTimeout(t); }
-    }, { url, body, timeoutMs });
+    // 注意:page.evaluate 默认 30s 超时,长生成会被 Playwright 提前 kill。
+    //      这里临时把 defaultTimeout 调到 timeoutMs,跑完恢复(避免影响 adapter 其他路径)。
+    const prevDefaultTimeout = page._defaultTimeout || 30000;
+    page.setDefaultTimeout(timeoutMs);
+    let result;
+    try {
+        result = await page.evaluate(async ({ url, body, timeoutMs }) => {
+            const ctrl = new AbortController();
+            const t = setTimeout(() => ctrl.abort(), timeoutMs);
+            try {
+                const m = document.cookie.match(/x-csrf-token=([^;]+)/);
+                const csrf = m ? decodeURIComponent(m[1]) : '';
+                const res = await fetch(url, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Accept': 'text/event-stream',
+                        'Content-Type': 'application/json',
+                        'x-csrf-token': csrf,
+                        'x-top-region': 'cn-north-1',
+                        'accept-language': 'zh',
+                    },
+                    body: JSON.stringify(body),
+                    signal: ctrl.signal,
+                });
+                if (!res.ok) return { ok: false, status: res.status, error: `HTTP ${res.status}`, body: null };
+                return { ok: true, status: res.status, body: await res.text() };
+            } catch (e) {
+                return { ok: false, status: 0, error: e.message || String(e), body: null };
+            } finally { clearTimeout(t); }
+        }, { url, body, timeoutMs });
+    } finally {
+        page.setDefaultTimeout(prevDefaultTimeout);
+    }
 
     if (!result.ok) {
         throw new Error(`streamChat HTTP 失败: status=${result.status} error=${result.error}`);
@@ -328,7 +337,7 @@ async function generate(context, prompt, imgPaths, modelId, meta = {}) {
         // 4. 拉取流式结果
         if (onDelta) {
             // streaming 模式:onDelta 实时推送,无需 return 完整 text
-            const r2 = await streamChat(page, session, messageId, onDelta, { timeoutMs: 120000 });
+            const r2 = await streamChat(page, session, messageId, onDelta, { timeoutMs: 300000 });
             logger.info('适配器', `[tongji] 流式完成 (${r2.fullText.length} 字符)`, logMeta);
             // 返回空 text — 走 queue.js 的 streamedByAdapter 路径,只送 finish_reason:'stop'
             return { text: '' };
