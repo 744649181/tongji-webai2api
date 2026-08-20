@@ -1,5 +1,22 @@
 $ErrorActionPreference = 'Continue'
-Set-Location E:\NEW-toy\WebAI2API
+
+# Resolve repo root (script lives in scripts/) and chdir there so all
+# relative paths in the rest of this script work regardless of where
+# it's invoked from.
+$RepoRoot = (Resolve-Path "$PSScriptRoot\..").Path
+Set-Location $RepoRoot
+
+# Read auth token from data/config.yaml so this script doesn't bake
+# in a specific developer's token. Falls back to a clear error if
+# server.auth is missing.
+$cfg = Get-Content (Join-Path $RepoRoot 'data\config.yaml') -Raw
+if ($cfg -match '(?m)^\s*auth:\s*(\S+)') {
+    $AUTH_TOKEN = $Matches[1]
+} else {
+    Write-Host 'FAIL server.auth not found in data\config.yaml' -ForegroundColor Red
+    exit 1
+}
+$AUTH = @{ Authorization = "Bearer $AUTH_TOKEN" }
 
 # 0. clean lingering processes
 Get-Process camoufox,firefox -EA SilentlyContinue | Stop-Process -Force -EA SilentlyContinue
@@ -9,22 +26,21 @@ Get-Process node -EA SilentlyContinue | Where-Object {
 Start-Sleep -Milliseconds 800
 
 # 1. cookies check
-$cookieFile = 'E:\NEW-toy\WebAI2API\data\camoufoxUserData_tongji\cookies.sqlite'
+$cookieFile = Join-Path $RepoRoot 'data\camoufoxUserData_tongji\cookies.sqlite'
 if (-not (Test-Path $cookieFile)) {
     Write-Host 'FAIL cookies.sqlite NOT FOUND' -ForegroundColor Red
     exit 1
 }
 
 # 2. spawn supervisor
-$logF = 'E:\NEW-toy\WebAI2API\smoke-test-v2.log'
-$errF = 'E:\NEW-toy\WebAI2API\smoke-test-v2.err'
+$logF = Join-Path $RepoRoot 'smoke-test-v2.log'
+$errF = Join-Path $RepoRoot 'smoke-test-v2.err'
 if (Test-Path $logF) { Remove-Item -LiteralPath $logF -Force }
 if (Test-Path $errF) { Remove-Item -LiteralPath $errF -Force }
-$p = Start-Process node -ArgumentList 'supervisor.js' -NoNewWindow -PassThru -RedirectStandardOutput $logF -RedirectStandardError $errF -WorkingDirectory 'E:\NEW-toy\WebAI2API'
+$p = Start-Process node -ArgumentList 'supervisor.js' -NoNewWindow -PassThru -RedirectStandardOutput $logF -RedirectStandardError $errF -WorkingDirectory $RepoRoot
 Write-Host "supervisor PID=$($p.Id), waiting 20s for browser+discoverModels..." -ForegroundColor Cyan
 Start-Sleep -Seconds 20
 
-$AUTH = @{ Authorization = 'Bearer sk-283629c3a933460254adddd5e9dff3e5c4af571c1435ad9b' }
 $BASE = 'http://127.0.0.1:3000'
 
 # ===== TEST 1: streaming =====
@@ -150,9 +166,9 @@ try {
 
 # ===== TEST 4: model switching (reuse session, switch to different model) =====
 Write-Host ''
-Write-Host '=== TEST 4: model switching (DeepSeek-V4-Pro -> GLM-5.1) ===' -ForegroundColor Cyan
+Write-Host '=== TEST 4: model switching (DeepSeek-V4-Pro -> GLM-5.2) ===' -ForegroundColor Cyan
 $body4 = @{
-    model = 'GLM-5.1'
+    model = 'GLM-5.2'
     messages = @(@{ role = 'user'; content = 'Reply with exactly: MODEL_OK' })
     stream = $false
 } | ConvertTo-Json -Depth 3
@@ -167,7 +183,7 @@ try {
     if ($modelUsed -match 'GLM') {
         Write-Host "OK model switched to $modelUsed" -ForegroundColor Green
     } else {
-        Write-Host "WARN response model=$modelUsed (expected GLM-5.1)" -ForegroundColor Yellow
+        Write-Host "WARN response model=$modelUsed (expected GLM-5.2)" -ForegroundColor Yellow
     }
 } catch {
     $elapsed4 = [math]::Round(((Get-Date) - $start4).TotalSeconds, 1)
@@ -188,6 +204,6 @@ Write-Host '=========== smoke-test-v2.log (last 30) ===========' -ForegroundColo
 if (Test-Path $logF) { Get-Content $logF -Tail 30 -Encoding utf8 }
 Write-Host ''
 Write-Host '=========== tongji-related log lines ===========' -ForegroundColor Magenta
-if (Test-Path 'E:\NEW-toy\WebAI2API\data\logs\system.log') {
-    Select-String -LiteralPath 'E:\NEW-toy\WebAI2API\data\logs\system.log' -Pattern 'tongji' -EA SilentlyContinue | Select-Object -Last 20 | ForEach-Object { $_.Line }
+if (Test-Path (Join-Path $RepoRoot 'data\logs\system.log')) {
+    Select-String -LiteralPath (Join-Path $RepoRoot 'data\logs\system.log') -Pattern 'tongji' -EA SilentlyContinue | Select-Object -Last 20 | ForEach-Object { $_.Line }
 }
