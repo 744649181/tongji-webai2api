@@ -5,6 +5,61 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### ✨ Added — Anthropic-protocol surface
+- **New HTTP routes**: `POST /v1/messages` (streaming + non-streaming), `GET /v1/models`, `POST /v1/messages/count_tokens`. Dispatched by header (`x-api-key` → Anthropic, `Authorization: Bearer` → OpenAI). Shared auth token from `data/config.yaml#server.auth`.
+- **Chat support**: OpenAI-SSE-shaped but Anthropic-typed events (`message_start`, `content_block_start`, `content_block_delta`, `content_block_stop`, `message_delta`, `message_stop`, `ping`). Stable `message.id` via `buildStableChatId()` from existing v2 framework.
+- **Multi-turn**: server-side `SessionID` history join (hiagent's `BatchCreateMessages` silently drops 2nd+ entries; the adapter only uploads the last user message; full history carried by hiagent session).
+- **Extended thinking**: `thinking: {type: "enabled", budget_tokens: N}` → maps hiagent `reasoning_content` into Anthropic `thinking` content blocks.
+- **Soft tool use**: tool schemas appended to prompt as suffix; model output scanned for `<tool_use>{json}</tool_use>` blocks; reconstructed into Anthropic `tool_use` content blocks. Streaming `input_json_delta` not used (reconstructed post-stream).
+- **Model aliases** (overridable via `data/config.yaml#anthropic.modelMap`):
+  - `claude-sonnet-4-5` → `DeepSeek-V4-Pro`
+  - `claude-haiku-4-5`  → `DeepSeek-V4-Flash`
+  - `claude-opus-4-1`   → `DeepSeek-R1`
+  - Plus stable date tags (`-20250929`, `-20251001`, `-20250805`). Raw Tongji names pass through unchanged.
+- **Error shape**: `{type:"error", error:{type, message, request_id}}` with HTTP status codes per Anthropic convention (401 authentication, 400 invalid_request, 403 permission, 404 not_found, 429 rate_limit, 502/503 api/overloaded).
+- **New files**: `src/server/api/anthropic/{errors,modelMap,parse,sse,tools,routes}.{js,mjs}` + `tests/anthropic/test-*.mjs` (46 tests).
+- **`scripts/smoke-test-anthropic.mjs`** — 9-case cross-platform E2E smoke test using `@anthropic-ai/sdk`. Requires a running server with valid Tongji SSO cookies.
+- **Dev dependency**: `@anthropic-ai/sdk@^0.120` (smoke test only; not a runtime dep).
+
+### ✨ Added — Smart login lifecycle
+- **`npm run up`** — smart start. Probes `data/.sso.enc` mtime (cheap) and falls back to hiagent API ping when stale. If INVALID/STALE, spawns `scripts/cli/login.mjs` to capture fresh SSO + encrypt. Otherwise spawns supervisor. Exit codes 0/2/3/4.
+- **`npm run down`** — graceful stop via supervisor IPC socket (with PID-file SIGTERM fallback).
+- **`npm run status`** — unified status: PID, port, login age, keychain, last log lines. Exit codes 0/1/5.
+- **`npm run login`** — explicit one-shot login (`--encrypt-only` flag for non-interactive use).
+- **Encrypted SSO storage** (`data/.sso.enc`): AES-256-GCM with random 12-byte IV per blob; master key 32 bytes held in OS keychain (`@napi-rs/keyring` → Windows Credential Manager / macOS Keychain / Linux libsecret). Linux without libsecret falls back to `data/.master.key` (chmod 600) with a warning in `npm run status`.
+- **401 watchdog** (`src/backend/auth/watchdog.js`): wired into `PoolManager._safeExecuteWorker` where the real worker (with `BrowserContext`) is available. 4-step state machine per worker mutex:
+  1. **Silent re-inject**: decrypt `.sso.enc` + `worker.browser.addCookies()` + retry the original request.
+  2. **Session refresh endpoint** (best-effort, skipped on 404/405).
+  3. **Notify + interactive browser re-login** (logs only at PoolManager layer; user triggers `npm run login` manually).
+  4. **Log critical + return 503**.
+- **Per-worker mutex**: concurrent 401s for the same worker await in-flight recovery. Different workers run independently.
+- **New files**: `src/backend/auth/{keychain,sso,probe,watchdog,recovery}.{js,mjs}` + `tests/auth/test-*.mjs` (31 tests).
+- **Dependency**: `@napi-rs/keyring@^1.3` (runtime dep).
+- **Existing `.bat`/`.sh` scripts unchanged**: they do more than the new CLI (e.g., `stop.bat` kills stuck `camoufox` processes with port check; `status.bat` does live health probe + log tail). New commands are an alternative entry point, not a replacement.
+
+### 🔧 Changed
+- **`src/backend/pool/PoolManager.js`**: `_safeExecuteWorker` now invokes the watchdog on 401-shaped adapter errors. Recovery happens before the result propagates to `queue.js`.
+- **`src/server/queue.js`**: detects 401-shaped errors at the outer layer for log visibility (recovery already attempted at PoolManager); logs a "client should re-login via `npm run login`" warning if a 401 bubbles up after watchdog exhaustion.
+- **`src/server/api/index.js`**: routes `/v1/messages*` and `/v1/models` requests to the Anthropic router when `x-api-key` header is present (else OpenAI flow).
+- **`src/server/middlewares/auth.js`**: `checkAuth()` now accepts both `Authorization: Bearer <token>` (OpenAI) and `x-api-key: <token>` (Anthropic) — single shared token from `server.auth`.
+- **`install.bat` / `install.sh`**: "Next steps" section now mentions `npm run up / down / status / login` alternative. Other legacy scripts preserved.
+- **`README.md`**: new "Smart login lifecycle" section (encryption model + watchdog 4-step behavior + limitations) and "Anthropic-protocol API" section.
+- **`config.example.yaml`**: new top-level `anthropic:` block (modelMap override) and trailing `auth:` block (informational only).
+- **`.github/workflows/ci.yml`**: matrix `test` job now runs both `tests/anthropic/*.mjs` and `tests/auth/*.mjs`. New `anthropic-smoke` job (self-hosted runner, manual `workflow_dispatch` or `run-anthropic-smoke` label) runs `scripts/smoke-test-anthropic.mjs`.
+
+### 🐛 Fixed
+- None directly (additive changes only; no upstream-adapter or framework file was modified).
+
+### 🔐 Notes
+- **Adapters untouched**: `src/backend/adapter/tongji.js` and all 18 upstream `src/backend/adapter/*.js` files received zero changes. Translation lives entirely in the new modules.
+- **Tongji adapter note (smart login)**: cookie injection happens via Playwright `context.addCookies()` at the PoolManager layer. The adapter itself still uses `document.cookie` to read cookies via `page.evaluate(fetch)`.
+- **Watchdog limitation**: silent recovery (Try 1) is gated on `worker.context.addCookies()` availability — currently only `PoolManager._safeExecuteWorker` can drive that path. queue.js still detects 401s for logging only.
+- **Encryption-at-rest boundary**: `data/.sso.enc` is encrypted; `data/camoufoxUserData_tongji/cookies.sqlite` (Camoufox's native cookies DB) is plaintext — this is unchanged. The encrypted blob is the project's audit-friendly copy.
+
+---
+
 ## [3.1.0] - 2026-06-03
 
 ### ✨ Added — this fork
