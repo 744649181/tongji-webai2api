@@ -190,6 +190,79 @@ Run `curl http://127.0.0.1:3000/v1/models -H "Authorization: Bearer $KEY"` for t
 
 ---
 
+## Anthropic-protocol API
+
+The server also exposes an Anthropic-protocol surface so you can use
+the Anthropic SDK (`@anthropic-ai/sdk`) or the Claude Code CLI
+without client-side changes. Both surfaces share the same auth token
+(`data/config.yaml#server.auth`); dispatch is header-based
+(`x-api-key` -> Anthropic, `Authorization: Bearer` -> OpenAI).
+
+### Quick start with Claude Code
+
+```bash
+export ANTHROPIC_BASE_URL=http://127.0.0.1:3000
+export ANTHROPIC_API_KEY=<auth from data/config.yaml>
+claude "Hello, world"
+```
+
+### `curl` example
+
+```bash
+KEY=$(grep "auth:" data/config.yaml | head -1 | awk '{print $2}')
+
+curl -N http://127.0.0.1:3000/v1/messages \
+  -H "x-api-key: $KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "content-type: application/json" \
+  -d '{
+    "model": "claude-sonnet-4-5",
+    "max_tokens": 256,
+    "messages": [{"role": "user", "content": "Hello"}]
+  }'
+```
+
+### Model aliases
+
+| Anthropic name | Tongji model |
+|----------------|--------------|
+| `claude-sonnet-4-5` | `DeepSeek-V4-Pro` (default; balanced) |
+| `claude-haiku-4-5`  | `DeepSeek-V4-Flash` (faster, lighter) |
+| `claude-opus-4-1`   | `DeepSeek-R1` (reasoning) |
+
+Stable date tags (`claude-sonnet-4-5-20250929` etc.) resolve to the
+same targets. Raw Tongji model names (`DeepSeek-V4-Pro`, `GLM-5.1`,
+etc.) pass through unchanged. Override per alias in
+`data/config.yaml#anthropic.modelMap`.
+
+### Supported features
+
+- Chat (streaming + non-streaming)
+- Extended thinking (`thinking: {type: "enabled", budget_tokens: N}`)
+- Multi-turn conversations (server-side `SessionID` preserves history)
+- Soft-synthesized tool use: tool schemas are appended to the prompt;
+  the model's output is scanned for `<tool_use>{...}</tool_use>` JSON
+  blocks and reconstructed as Anthropic `tool_use` content blocks.
+- Token counting via `/v1/messages/count_tokens` (estimate: chars / 4)
+
+### Limitations
+
+- **Vision / image inputs** -- not supported (return 400). Tongji
+  hiagent has no vision model.
+- **Prompt caching** -- ignored. Tongji has no `cache_control` hook.
+- **Tool calling is best-effort**: depends on the upstream model's
+  instruction-following. Use `claude-sonnet-4-5` (DeepSeek-V4-Pro)
+  for best results.
+
+### Verification
+
+```bash
+node --test tests/anthropic/*.mjs                   # 46 unit + integration tests
+node scripts/smoke-test-anthropic.mjs              # 9-case live SDK test (requires running server + SSO)
+```
+
+---
+
 ## Architecture
 
 ```
