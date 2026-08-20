@@ -100,7 +100,17 @@ export async function injectIntoContext(context, sessionCookies) {
 
 /**
  * Capture session cookies from Camoufox cookies.sqlite.
- * Pulls x-csrf-token + any cookie whose name matches /^(session|sess|sid|jwt|access_token)$/i.
+ *
+ * Captures ALL cookies whose host matches a Tongji hiagent domain
+ * (host LIKE '%tongji%' OR host LIKE '%hiagent%'). This is intentionally
+ * broad — the upstream WebAI2API regex assumed English cookie names
+ * (session / csrf / jwt), but Tongji's actual SSO sets cookies named
+ * `tenant`, `x`, `I18nextLngHiagent`, etc. A name-based filter would
+ * drop every single one.
+ *
+ * The trade-off: we may capture UI-preference cookies (e.g. UI language)
+ * alongside auth cookies. Playwright's addCookies is happy to re-inject
+ * extras, and the cost is a few extra bytes in .sso.enc.
  *
  * @param {string} cookiesSqlitePath - absolute path to cookies.sqlite
  * @returns {Promise<{sessionCookies: Array, userIdentifier: string, capturedAt: string}>}
@@ -116,22 +126,28 @@ export async function captureFromBrowser(cookiesSqlitePath) {
         const rows = db.prepare(
             "SELECT name, value, host, path FROM moz_cookies WHERE host LIKE '%tongji%' OR host LIKE '%hiagent%'"
         ).all();
-        const interesting = /^(x-csrf-token|csrf-token|session|sess|sid|jwt|access_token|user_id|uid)$/i;
-        const sessionCookies = rows
-            .filter((r) => interesting.test(r.name))
-            .map((r) => ({
-                name: r.name,
-                value: r.value,
-                domain: r.host.startsWith('.') ? r.host : `.${r.host}`,
-                path: r.path || '/',
-            }));
+        const sessionCookies = rows.map((r) => ({
+            name: r.name,
+            value: r.value,
+            domain: r.host.startsWith('.') ? r.host : `.${r.host}`,
+            path: r.path || '/',
+        }));
         if (sessionCookies.length === 0) {
             throw new Error('no session cookies captured; SSO incomplete');
         }
+        // userIdentifier derivation (stable per SSO session):
+        //   1. Prefer csrf-token if present (back-compat with existing logs).
+        //   2. Else prefer `tenant` cookie (stable Tongji tenant id).
+        //   3. Else hash the sorted cookie names (still stable across
+        //      value rotations, just less specific).
         const csrf = sessionCookies.find((c) => /csrf/i.test(c.name));
-        const userIdentifier = csrf
-            ? `sha256:${crypto.createHash('sha256').update(csrf.value).digest('hex').slice(0, 16)}`
-            : `sha256:${crypto.randomBytes(8).toString('hex')}`;
+        const tenant = sessionCookies.find((c) => c.name === 'tenant');
+        const seed = csrf
+            ? csrf.value
+            : tenant
+            ? tenant.value
+            : sessionCookies.map((c) => c.name).sort().join('|');
+        const userIdentifier = `sha256:${crypto.createHash('sha256').update(seed).digest('hex').slice(0, 16)}`;
         return {
             sessionCookies,
             userIdentifier,

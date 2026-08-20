@@ -106,6 +106,18 @@ backend:
             type: lmarena              # 适配器类型
 
       # ------------------------------------------------
+      # [实例 tongji-webai2api 同济智能体平台] -- 本 fork 的 headline 适配器
+      # userDataMark=tongji -> 数据目录: data/camoufoxUserData_tongji
+      # 这与 scripts/cli/login.mjs 的 COOKIE_PATH 硬编码必须保持一致。
+      # 如果上游重新合并时不带这个实例，login.mjs 会找不到 Worker 并进入安全模式。
+      # ------------------------------------------------
+      - name: "browser_tongji"
+        userDataMark: "tongji"
+        workers:
+          - name: "tongji"
+            type: tongji
+
+      # ------------------------------------------------
       # 以下为多实例配置示例 (默认注释)
       # ------------------------------------------------
       
