@@ -103,6 +103,25 @@ jobs:
             }).catch(e => { console.error('FAIL:', e.message); process.exit(1); });
           "
 
+      - name: Anthropic router structural check
+        shell: bash
+        run: |
+          # Load the Anthropic router module and verify it exports the factory.
+          # No live browser required. Catches missing imports / typos at PR time.
+          node --input-type=module -e "
+            import('./src/server/api/anthropic/routes.js').then(m => {
+              if (typeof m.createAnthropicRouter !== 'function') {
+                throw new Error('createAnthropicRouter missing or not a function');
+              }
+              console.log('OK: anthropic router loads');
+            }).catch(e => { console.error('FAIL:', e.message); process.exit(1); });
+          "
+
+      - name: Anthropic unit + integration tests
+        shell: bash
+        run: |
+          node --test tests/anthropic/*.mjs
+
   # Real hiagent smoke test — only runs on self-hosted runner with
   # a pre-authenticated Camoufox cookies file at the expected path.
   # Disabled by default; enable by adding the `run-smoke` label to a PR.
@@ -126,3 +145,33 @@ jobs:
         shell: pwsh
         run: |
           powershell -File scripts/smoke-test-tongji-v2.ps1
+
+  # Anthropic-protocol live smoke test (manual, self-hosted runner only).
+  # Disabled by default; enable by adding the `run-anthropic-smoke` label
+  # to a PR, or trigger via the Actions tab (workflow_dispatch).
+  anthropic-smoke:
+    name: Anthropic-protocol smoke test (manual)
+    if: contains(github.event.label.name, 'run-anthropic-smoke') || github.event_name == 'workflow_dispatch'
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Copy pre-authenticated Camoufox profile
+        run: |
+          mkdir -p data
+          cp -r /opt/tongji-test-fixtures/camoufoxUserData_tongji data/
+          cp    /opt/tongji-test-fixtures/config.yaml      data/
+      - name: Start server
+        run: |
+          ./start.sh &
+          sleep 8
+      - name: Run Anthropic smoke test
+        run: |
+          node scripts/smoke-test-anthropic.mjs
+        env:
+          # Surface any non-zero exit code immediately
+          CI: 'true'
