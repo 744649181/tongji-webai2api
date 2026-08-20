@@ -122,6 +122,13 @@ jobs:
         run: |
           node --test tests/anthropic/*.mjs
 
+      - name: Auth unit tests (smart login)
+        shell: bash
+        run: |
+          # Unit tests for src/backend/auth/* primitives.
+          # No live browser / keychain required (mocked via tests/auth/helpers/).
+          node --test tests/auth/*.mjs
+
   # Real hiagent smoke test — only runs on self-hosted runner with
   # a pre-authenticated Camoufox cookies file at the expected path.
   # Disabled by default; enable by adding the `run-smoke` label to a PR.
