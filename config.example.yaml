@@ -233,3 +233,14 @@ browser:
     # 代理认证 (可选)
     # user: username
     # passwd: password
+
+# ========================================
+# Smart login (informational only)
+# ========================================
+# Behavior is hardcoded in src/backend/auth/. The fields below document
+# what is enabled by default and may be referenced by future code paths.
+auth:
+  encryptAlgo: "aes-256-gcm"
+  keychainFallback: "auto"  # auto | always | never -- Linux file fallback policy
+  ssoBlobPath: "data/.sso.enc"
+  staleAfterDays: 30

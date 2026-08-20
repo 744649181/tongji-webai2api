@@ -263,6 +263,74 @@ node scripts/smoke-test-anthropic.mjs              # 9-case live SDK test (requi
 
 ---
 
+## Smart login lifecycle
+
+A single command starts the server, walks you through SSO only when the
+session has expired, and silently re-authenticates if a request hits a
+401 mid-session. Built on top of the legacy `login.bat / start.bat`
+flow; both remain supported.
+
+### Quick start
+
+```bash
+npm run up
+```
+
+That's it. The first run pops up a browser for SSO; subsequent runs
+start the server with no interaction. `npm run status` shows login age,
+keychain health, and server status in one view.
+
+### Commands
+
+| Command | Purpose |
+|---------|---------|
+| `npm run up` | smart start: probe SSO, login if needed, spawn supervisor |
+| `npm run down` | graceful stop (via supervisor IPC + PID fallback) |
+| `npm run status` | unified status: PID, port, login age, keychain, last log lines |
+| `npm run login` | force a fresh SSO + encrypt session state |
+
+Legacy `login.bat/sh`, `start.bat/sh`, etc. continue to work (they do
+extra things like killing stuck camoufox processes and live health
+probes). For most users, `npm run up` is enough.
+
+### Encryption model
+
+- Session cookies + csrf are captured after SSO and encrypted with
+  **AES-256-GCM** before being written to `data/.sso.enc`.
+- The master key is **never on disk in plaintext**: it lives in the OS
+  keychain (Windows Credential Manager / macOS Keychain / Linux
+  libsecret) under service `tongji-webai2api`, account
+  `sso-master-key`.
+- Linux without libsecret falls back to `data/.master.key` (chmod 600)
+  with a warning in `npm run status`.
+
+### Watchdog (silent 401 recovery)
+
+When a Tongji upstream call returns 401, the server-side watchdog tries
+four recovery steps before giving up:
+
+1. **Silent re-inject**: decrypt `data/.sso.enc` and call Playwright's
+   `context.addCookies()` on the running browser context.
+2. **Session refresh endpoint** (if Tongji hiagent exposes one): a
+   best-effort `Action=RefreshSession` round-trip.
+3. **Interactive re-login**: desktop notification + browser popup.
+4. **Fail loud**: log critical + return 503 to the upstream caller.
+
+Recovery runs in a per-worker mutex, so concurrent 401s on the same
+worker are serialized; different workers recover independently.
+
+### Limitations
+
+- macOS / Linux first-time login still needs an interactive browser
+  popup. Once the session is captured, subsequent runs and watchdog
+  recoveries are click-free.
+- Linux without libsecret uses the file fallback (less secure at rest).
+- Watchdog's silent re-inject requires the worker to expose its
+  BrowserContext; current queue.js integration is detection-only
+  (full silent recovery is queued for the PoolManager refactor).
+
+---
+
 ## Architecture
 
 ```
