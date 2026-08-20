@@ -9,6 +9,7 @@ import { createStrategySelector } from '../strategies/index.js';
 import { executeWithFailover } from '../strategies/failover.js';
 import { normalizeError } from '../utils/error.js';
 import { Worker } from './Worker.js';
+import { tryWatchdogRecovery, is401Result } from '../auth/recovery.mjs';
 
 /**
  * PoolManager 类 - 管理 Worker 池
@@ -223,7 +224,26 @@ export class PoolManager {
      */
     async _safeExecuteWorker(worker, ctx, prompt, paths, modelId, meta) {
         try {
-            return await worker.generate(ctx, prompt, paths, modelId, meta);
+            const result = await worker.generate(ctx, prompt, paths, modelId, meta);
+            // v2.1 (smart login): 401-shaped errors -> watchdog recovery.
+            // PoolManager has access to the real worker (with browser context),
+            // so Try 1 (silent re-inject via context.addCookies) actually runs.
+            // queue.js's stub wiring is now redundant -- left in for defense
+            // in depth but should not fire if this layer recovers.
+            if (is401Result(result)) {
+                logger.warn('工作池', `[${worker.name}] 401 detected, invoking watchdog`);
+                const wd = await tryWatchdogRecovery({
+                    worker,
+                    logger,
+                    originalRequest: () => worker.generate(ctx, prompt, paths, modelId, meta),
+                });
+                if (wd?.ok) {
+                    logger.info('工作池', `[${worker.name}] watchdog recovered; returning result`);
+                    return { recovered: true, original: result };
+                }
+                logger.warn('工作池', `[${worker.name}] watchdog exhausted: ${wd?.reason || 'unknown'}`);
+            }
+            return result;
         } catch (err) {
             logger.error('工作池', `[${worker.name}] 执行异常`, { error: err.message, ...meta });
             return normalizeError(err.message || '执行异常');
