@@ -148,3 +148,8 @@ echo
 echo "  4. Use it from Chatbox / curl / your favorite OpenAI client."
 echo "     See README.md for details."
 echo
+echo "  Alternative (v3.1+): ${CYAN}npm run up / down / status / login${RESET}"
+echo "    wraps login + start with a single smart command and silent"
+echo "    401 recovery via the watchdog. See README 'Smart login"
+echo "    lifecycle' section for the encryption model."
+echo
