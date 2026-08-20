@@ -68,6 +68,7 @@ export async function getMasterKey(opts = {}) {
         }
         throw new KeychainUnavailable(err);
     }
+    if (raw == null) return null;
     return parseRaw(raw);
 }
 

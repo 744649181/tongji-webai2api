@@ -11,10 +11,15 @@ export function __resetKeyringMock() {
     store.clear();
     failNext = false;
     delete globalThis.__MOCK_KEYRING_FAIL__;
+    delete globalThis.__MOCK_KEYRING_RETURN_NULL__;
 }
 
 export function __setKeyringFail(v) {
     globalThis.__MOCK_KEYRING_FAIL__ = !!v;
+}
+
+export function __setKeyringReturnNull(v) {
+    globalThis.__MOCK_KEYRING_RETURN_NULL__ = !!v;
 }
 
 export class MockEntry {
@@ -34,6 +39,9 @@ export class MockEntry {
         if (globalThis.__MOCK_KEYRING_FAIL__) {
             failNext = false;
             throw new Error('PlatformFailure (mock): keychain unavailable');
+        }
+        if (globalThis.__MOCK_KEYRING_RETURN_NULL__) {
+            return null;
         }
         const v = store.get(this._key);
         if (v === undefined) throw new Error('No entry found in secure storage');

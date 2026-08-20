@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mockKeyring, __resetKeyringMock, __setKeyringFail } from './helpers/mockKeyring.mjs';
+import { mockKeyring, __resetKeyringMock, __setKeyringFail, __setKeyringReturnNull } from './helpers/mockKeyring.mjs';
 
 const { getMasterKey, setMasterKey, deleteMasterKey, isAvailable, _resetForTests, _setKeyringForTests } =
     await import('../../src/backend/auth/keychain.mjs');
@@ -18,6 +18,12 @@ test('keychain: isAvailable returns true when keychain reachable', async () => {
 
 test('keychain: getMasterKey returns null when no key stored', async () => {
     setupMock();
+    assert.equal(await getMasterKey(), null);
+});
+
+test('keychain: getMasterKey returns null when entry.getPassword() returns null (real-world Windows behavior)', async () => {
+    setupMock();
+    __setKeyringReturnNull(true);
     assert.equal(await getMasterKey(), null);
 });
 
