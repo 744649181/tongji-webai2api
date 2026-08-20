@@ -18,51 +18,14 @@ import {
 import { ERROR_CODES } from './errors.js';
 import { incrementSuccess, incrementFailed } from '../utils/stats.js';
 import { createRecord, updateRecord, processResponseMedia } from '../utils/history.js';
-import path from 'node:path';
 
-// v2.1 (smart login): 401 detection + watchdog invocation helpers.
-// Dynamic imports so existing tests don't pay startup cost; lazy-loaded on
-// first 401 hit. Minimal integration: queue.js cannot reach the worker that
-// PoolManager picked for this task, so Try 1 (silent re-inject) is skipped.
-// Try 2 (refresh endpoint) and Try 3 (interactive browser) are called; full
-// silent recovery requires wiring from PoolManager._safeExecuteWorker.
-const _watchdogMod = { ready: false };
-
+// v2.1 (smart login): detect 401-shaped errors at the queue layer. The actual
+// watchdog recovery (with real worker context) is wired in
+// PoolManager._safeExecuteWorker -- queue.js only logs a final warning if a
+// 401 bubbles up after recovery has been exhausted.
 function looksLike401(msg) {
     if (!msg || typeof msg !== 'string') return false;
     return /\b(401|403)\b/.test(msg) || /unauthor/i.test(msg) || /session[ _-]?expired/i.test(msg);
-}
-
-async function invokeWatchdog({ logger, notifyOverride }) {
-    if (!_watchdogMod.ready) {
-        const [wd, sso, kc] = await Promise.all([
-            import('../backend/auth/watchdog.js'),
-            import('../backend/auth/sso.mjs'),
-            import('../backend/auth/keychain.mjs'),
-        ]);
-        _watchdogMod.wd = wd;
-        _watchdogMod.sso = sso;
-        _watchdogMod.kc = kc;
-        _watchdogMod.ready = true;
-    }
-    const { handle401 } = _watchdogMod.wd;
-    const { loadBlob } = _watchdogMod.sso;
-    const { getMasterKey } = _watchdogMod.kc;
-    const SSO_PATH = path.join(process.cwd(), 'data', '.sso.enc');
-    const blob = await loadBlob(SSO_PATH);
-    const masterKey = await getMasterKey({ allowFileFallback: true }).catch(() => null);
-    return handle401({
-        worker: { name: 'queue-routed', context: null, page: null },
-        originalRequest: async () => ({ ok: false, status: 401 }),
-        logger,
-        deps: {
-            ssoFilePath: SSO_PATH,
-            masterKey,
-            ssoBlob: blob,
-            notify: notifyOverride,
-            doRefreshSession: async () => ({ ok: false, status: 404 }),
-        },
-    });
 }
 
 /**
@@ -213,27 +176,12 @@ export function createQueueManager(queueConfig, callbacks) {
 
             // 处理结果
             if (result.error) {
-                // v2.1 (smart login): 检测 401-like 错误,触发 watchdog 恢复编排。
-                // 当前为最小集成:queue.js 拿不到具体被分配的 worker(BrowserContext),
-                // Try 1 (silent re-inject) 跳过;Try 2 (refresh endpoint) 尝试调用;
-                // Try 3 (interactive browser) 在 server 运行中被禁用(避免与已有浏览器冲突)。
-                // 真正 silent 恢复需要 PoolManager._safeExecuteWorker 中注入 worker。
+                // v2.1 (smart login): PoolManager._safeExecuteWorker already attempted
+                // watchdog recovery for 401-shaped errors. If we see one here it
+                // means recovery was exhausted (Try 4 returned 503). Log so the
+                // user can take action (e.g., `npm run login`).
                 if (looksLike401(result.error)) {
-                    try {
-                        const recovered = await invokeWatchdog({
-                            logger,
-                            notifyOverride: {
-                                desktop: (m) => logger.warn('服务器', `watchdog-notify [desktop]: ${m}`),
-                                prompt: (m) => logger.warn('服务器', `watchdog-notify [prompt]: ${m}`),
-                                launchBrowserLogin: async () => ({ ok: false, reason: 'disabled_in_queue_context' }),
-                            },
-                        });
-                        if (recovered?.ok) {
-                            logger.info('服务器', 'watchdog 已恢复;请客户端重试请求');
-                        }
-                    } catch (e) {
-                        logger.warn('服务器', `watchdog 调用失败: ${e.message}`);
-                    }
+                    logger.warn('服务器', 'SSO cookie rejected and watchdog recovery exhausted; client should re-login via `npm run login`');
                 }
                 // 生成失败：记录统计和历史
                 await incrementFailed();
