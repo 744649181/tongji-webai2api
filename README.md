@@ -65,7 +65,8 @@ After `start.bat` / `./start.sh` reports `Server is running on http://127.0.0.1:
 | `start.bat`   | `./start.sh`   | Start supervisor in background |
 | `open-webui.bat` | `./open-webui.sh` | Open the WebUI admin panel in your browser |
 | `tray.bat`   | _(n/a — Windows only)_ | Launch the **floating window** in the system tray (one-click everything) |
-| `status.bat`  | `./status.sh`  | Show PID, port, last 12 log lines |
+| `get-key.bat` | `./get-key.sh` | Print the current API key (also shown after every `start.bat`) |
+| `status.bat`  | `./status.sh`  | Show PID, port, API key, last 12 log lines |
 | `stop.bat`    | `./stop.sh`    | Stop the server |
 | `restart.bat` | `./restart.sh` | Stop + start |
 | `update.bat`  | `./update.sh`  | `git pull` + `npm ci` + restart |

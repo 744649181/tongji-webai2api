@@ -220,36 +220,45 @@ async function ensureSession(page, requestedModelName, meta = {}) {
  * @param {object} [opts]
  * @returns {Promise<{fullText: string, reasoningText: string}>}
  */
-async function streamChat(page, session, messageId, onDelta, { timeoutMs = 120000 } = {}) {
+async function streamChat(page, session, messageId, onDelta, { timeoutMs = 300000 } = {}) {
     const url = `/api/bypass/aigw?Action=Chat&${API_QUERY}`;
     const body = { SessionID: session.sessionId, MessageID: messageId, WorkspaceID: WORKSPACE_ID };
 
     // page 端:单次 fetch 拉完整 body(简化:不暴露 ReadableStream reader)
-    const result = await page.evaluate(async ({ url, body, timeoutMs }) => {
-        const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), timeoutMs);
-        try {
-            const m = document.cookie.match(/x-csrf-token=([^;]+)/);
-            const csrf = m ? decodeURIComponent(m[1]) : '';
-            const res = await fetch(url, {
-                method: 'POST',
-                credentials: 'include',
-                headers: {
-                    'Accept': 'text/event-stream',
-                    'Content-Type': 'application/json',
-                    'x-csrf-token': csrf,
-                    'x-top-region': 'cn-north-1',
-                    'accept-language': 'zh',
-                },
-                body: JSON.stringify(body),
-                signal: ctrl.signal,
-            });
-            if (!res.ok) return { ok: false, status: res.status, error: `HTTP ${res.status}`, body: null };
-            return { ok: true, status: res.status, body: await res.text() };
-        } catch (e) {
-            return { ok: false, status: 0, error: e.message || String(e), body: null };
-        } finally { clearTimeout(t); }
-    }, { url, body, timeoutMs });
+    // 注意:page.evaluate 默认 30s 超时,长生成会被 Playwright 提前 kill。
+    //      这里临时把 defaultTimeout 调到 timeoutMs,跑完恢复(避免影响 adapter 其他路径)。
+    const prevDefaultTimeout = page._defaultTimeout || 30000;
+    page.setDefaultTimeout(timeoutMs);
+    let result;
+    try {
+        result = await page.evaluate(async ({ url, body, timeoutMs }) => {
+            const ctrl = new AbortController();
+            const t = setTimeout(() => ctrl.abort(), timeoutMs);
+            try {
+                const m = document.cookie.match(/x-csrf-token=([^;]+)/);
+                const csrf = m ? decodeURIComponent(m[1]) : '';
+                const res = await fetch(url, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Accept': 'text/event-stream',
+                        'Content-Type': 'application/json',
+                        'x-csrf-token': csrf,
+                        'x-top-region': 'cn-north-1',
+                        'accept-language': 'zh',
+                    },
+                    body: JSON.stringify(body),
+                    signal: ctrl.signal,
+                });
+                if (!res.ok) return { ok: false, status: res.status, error: `HTTP ${res.status}`, body: null };
+                return { ok: true, status: res.status, body: await res.text() };
+            } catch (e) {
+                return { ok: false, status: 0, error: e.message || String(e), body: null };
+            } finally { clearTimeout(t); }
+        }, { url, body, timeoutMs });
+    } finally {
+        page.setDefaultTimeout(prevDefaultTimeout);
+    }
 
     if (!result.ok) {
         throw new Error(`streamChat HTTP 失败: status=${result.status} error=${result.error}`);
@@ -327,9 +336,10 @@ async function generate(context, prompt, imgPaths, modelId, meta = {}) {
 
         // 4. 拉取流式结果
         if (onDelta) {
-            // streaming 模式:onDelta 实时推 SSE,但仍需 return 完整 text 给 queue.js
-            // 用于写入 history.response_text(WebUI Tools/Request 页显示)
-            const r2 = await streamChat(page, session, messageId, onDelta, { timeoutMs: 120000 });
+            // streaming 模式:onDelta 实时推 SSE,但 generate() 仍需 return 完整 text
+            // 给 queue.js 写入 history.response_text(WebUI Tools/Request 页显示)。
+            // timeoutMs 与 main 的 16ed8d6 对齐(300s,避免长响应被 Playwright 30s 默认超时截断)
+            const r2 = await streamChat(page, session, messageId, onDelta, { timeoutMs: 300000 });
             logger.info('适配器', `[tongji] 流式完成 (${r2.fullText.length} 字符)`, logMeta);
             return {
                 text: r2.fullText,

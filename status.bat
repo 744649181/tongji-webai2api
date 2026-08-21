@@ -32,6 +32,16 @@ if defined LISTENING_PID (
     echo   Started:       !START_TIME!
     echo.
 
+    REM Show API key
+    set "API_KEY="
+    for /f "delims=" %%k in ('node -e "const c=require('fs').readFileSync('data\config.yaml','utf8');const m=c.match(/^\s*auth:\s*['\x22]?([^\x22'\s]+)['\x22]?/m);process.stdout.write(m?m[1]:'')" 2^>nul') do set "API_KEY=%%k"
+    if defined API_KEY (
+        echo   %GRAY%API key:%RESET%      %BOLD%!API_KEY!%RESET%
+    ) else (
+        echo   %GRAY%API key:%RESET%      not found in data\config.yaml
+    )
+    echo.
+
     echo %GRAY%Testing /v1/models ...%RESET%
     for /f "tokens=*" %%r in ('powershell -NoProfile -Command "try { (Invoke-WebRequest 'http://127.0.0.1:3000/v1/models' -TimeoutSec 5 -EA Stop).StatusCode } catch { 0 }" 2^>nul') do set "HTTP_CODE=%%r"
     if "!HTTP_CODE!"=="200" (
