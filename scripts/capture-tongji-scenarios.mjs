@@ -20,6 +20,7 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 export const SERVER = 'http://127.0.0.1:3000';
 const KEY = 'sk-change-me-to-your-secure-key';
@@ -218,9 +219,16 @@ function report(name, result, notes = '') {
     console.log(`${tag}[${status.padEnd(5)}]\x1b[0m ${name.padEnd(35)} status=${result.status ?? '-'} elapsed=${result.elapsedMs ?? '-'}ms${notes ? '  // ' + notes : ''}`);
 }
 
+async function main() {
 const summary = [];
 
 // ==================== Scenarios ====================
+//
+// NOTE: scenarios run inside main() which is called only when this module
+// is the program entry point (guarded at the bottom). Without this guard,
+// importing parseSseFrames() from a test would re-trigger the whole capture
+// run as a module side effect, silently overwriting captures/. Same
+// anti-pattern as fix(login) in CONTRIBUTING.md.
 
 // 1. Baseline — single turn, short prompt, stream off (easier to parse)
 {
@@ -374,3 +382,12 @@ writeFileSync(path.join(CAPTURE_DIR, 'summary.json'), JSON.stringify({
 console.log('\n=== DONE ===');
 console.log(`Summary: ${path.join(CAPTURE_DIR, 'summary.json')}`);
 console.log(`Per-scenario JSONs in: ${CAPTURE_DIR}`);
+} // end main()
+
+// Guard: only run when invoked directly, not when imported by tests.
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+    main().catch((err) => {
+        console.error('capture-tongji-scenarios failed:', err.stack || err.message);
+        process.exit(1);
+    });
+}
