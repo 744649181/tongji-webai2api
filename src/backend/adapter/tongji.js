@@ -327,11 +327,14 @@ async function generate(context, prompt, imgPaths, modelId, meta = {}) {
 
         // 4. 拉取流式结果
         if (onDelta) {
-            // streaming 模式:onDelta 实时推送,无需 return 完整 text
+            // streaming 模式:onDelta 实时推 SSE,但仍需 return 完整 text 给 queue.js
+            // 用于写入 history.response_text(WebUI Tools/Request 页显示)
             const r2 = await streamChat(page, session, messageId, onDelta, { timeoutMs: 120000 });
             logger.info('适配器', `[tongji] 流式完成 (${r2.fullText.length} 字符)`, logMeta);
-            // 返回空 text — 走 queue.js 的 streamedByAdapter 路径,只送 finish_reason:'stop'
-            return { text: '' };
+            return {
+                text: r2.fullText,
+                reasoning: r2.reasoningText || undefined,
+            };
         } else {
             // non-streaming 模式:一次性返回完整 text
             const r2 = await streamChat(page, session, messageId, null, { timeoutMs: 120000 });
