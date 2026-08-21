@@ -15,7 +15,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, openSync } from 'node:fs';
 import path from 'node:path';
 
 import { probe } from '../../src/backend/auth/probe.mjs';
@@ -23,6 +23,7 @@ import { logger } from '../../src/utils/logger.js';
 
 const SSO_PATH = path.join(process.cwd(), 'data', '.sso.enc');
 const PID_PATH = path.join(process.cwd(), 'data', 'supervisor.pid');
+const SUPERVISOR_LOG_PATH = path.join(process.cwd(), 'data', 'logs', 'supervisor.log');
 
 function parseArgs(argv) {
     const args = { forceStart: false, ci: false };
@@ -50,17 +51,36 @@ function alreadyRunning() {
 
 async function spawnSupervisor() {
     mkdirSync(path.dirname(PID_PATH), { recursive: true });
+    mkdirSync(path.dirname(SUPERVISOR_LOG_PATH), { recursive: true });
+    // Open a log file BEFORE spawning. We pass its file descriptor as the
+    // supervisor's stdout/stderr so the child's console.log output is
+    // captured persistently — independent of any parent's console handles.
+    //
+    // We deliberately avoid `stdio: 'inherit'` here: on Windows, when this
+    // script runs via `npm.cmd`, inheriting stdio ties the supervisor to
+    // npm.cmd's console, and the supervisor dies almost immediately after
+    // we exit (closes the inherited handles before main() runs).
+    // detached: true + a real file fd makes the child self-sufficient.
+    const logFd = openSync(SUPERVISOR_LOG_PATH, 'a');
     return new Promise((resolve, reject) => {
         const child = spawn(process.execPath, ['supervisor.js'], {
             cwd: process.cwd(),
-            stdio: 'inherit',
+            stdio: ['ignore', logFd, logFd],
             detached: true,
         });
         child.on('spawn', () => {
             writeFileSync(PID_PATH, String(child.pid));
+            writeFileSync(SUPERVISOR_LOG_PATH,
+                `[up.mjs ${new Date().toISOString()}] supervisor spawned PID=${child.pid}\n`,
+                { flag: 'a' });
             resolve(child);
         });
-        child.on('error', reject);
+        child.on('error', (err) => {
+            writeFileSync(SUPERVISOR_LOG_PATH,
+                `[up.mjs ${new Date().toISOString()}] spawn error: ${err.message}\n`,
+                { flag: 'a' });
+            reject(err);
+        });
     });
 }
 
