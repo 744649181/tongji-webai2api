@@ -1,0 +1,27 @@
+{
+  "capturedAt": "2026-08-21T11:19:33.944Z",
+  "scenario": "tool call: prompt-only style (model decides)",
+  "result": {
+    "ok": true,
+    "status": 200,
+    "elapsedMs": 672,
+    "stream": false,
+    "contentType": "application/json",
+    "body": {
+      "id": "chatcmpl-1787311173942",
+      "object": "chat.completion",
+      "created": 1787311173,
+      "model": "Qwen3-235B",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "<tool_use>{\"name\":\"get_weather\",\"input\":{\"city\":\"Shanghai\"}}</tool_use>"
+          },
+          "finish_reason": "stop"
+        }
+      ]
+    }
+  }
+}

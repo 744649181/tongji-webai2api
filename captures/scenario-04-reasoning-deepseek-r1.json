@@ -1,0 +1,18 @@
+{
+  "capturedAt": "2026-08-21T11:19:09.329Z",
+  "scenario": "reasoning model: DeepSeek-R1 with math prompt",
+  "result": {
+    "ok": true,
+    "status": 200,
+    "elapsedMs": 25481,
+    "stream": true,
+    "contentType": "text/event-stream",
+    "sseFrameCount": 640,
+    "finishReason": "stop",
+    "usage": null,
+    "contentLength": 189,
+    "reasoningLength": 1705,
+    "contentPreview": "\nThe result of multiplying 7 by 8 is 56. This can be verified using the multiplication table or by repeated addition (7 added 8 times: 7 + 7 + 7 + 7 + 7 + 7 + 7 + 7 = 56).\n\n\\[ \\boxed{56} \\]",
+    "reasoningPreview": "\nFirst, the user asked: \"7 * 8 = ?\" That's straightforward multiplication. I know that 7 times 8 is 56. But let me double-check to be sure.\n\nI recall the multiplication table: 7 x 1 = 7, 7 x 2 = 14, 7"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "capturedAt": "2026-08-21T11:19:33.272Z",
+  "scenario": "error case: image input",
+  "result": {
+    "ok": true,
+    "status": 200,
+    "elapsedMs": 1665,
+    "stream": false,
+    "contentType": "application/json",
+    "body": {
+      "id": "chatcmpl-1787311173269",
+      "object": "chat.completion",
+      "created": 1787311173,
+      "model": "Qwen3-235B",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "It seems there was a misunderstanding. I can certainly help you list the numbers from 1 to 10, comma-separated:\n\n1, 2, 3, 4, 5, 6, 7, 8, 9, 10\n\nLet me know if you need help with anything else."
+          },
+          "finish_reason": "stop"
+        }
+      ]
+    }
+  }
+}

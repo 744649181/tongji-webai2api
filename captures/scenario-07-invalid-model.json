@@ -1,0 +1,18 @@
+{
+  "capturedAt": "2026-08-21T11:19:31.607Z",
+  "scenario": "error case: invalid model name",
+  "result": {
+    "ok": false,
+    "status": 400,
+    "elapsedMs": 2,
+    "stream": false,
+    "contentType": "application/json",
+    "body": {
+      "error": {
+        "message": "模型无效/后端 pool 不支持: DOES-NOT-EXIST-XYZ",
+        "type": "invalid_request_error",
+        "code": "INVALID_MODEL"
+      }
+    }
+  }
+}
