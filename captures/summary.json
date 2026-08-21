@@ -1,0 +1,54 @@
+{
+  "generatedAt": "2026-08-21T11:19:38.560Z",
+  "scenarios": [
+    {
+      "name": "01-baseline-nonstream",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "name": "02-baseline-stream",
+      "ok": true,
+      "frameCount": 6
+    },
+    {
+      "name": "03-multiturn",
+      "ok": true,
+      "remembered": false
+    },
+    {
+      "name": "04-reasoning",
+      "ok": true,
+      "reasoningChars": 1705
+    },
+    {
+      "name": "05-long-response",
+      "ok": true,
+      "frameCount": 492,
+      "contentLength": 2534
+    },
+    {
+      "name": "06-max-tokens-boundary",
+      "ok": true
+    },
+    {
+      "name": "07-invalid-model",
+      "ok": false,
+      "status": 400
+    },
+    {
+      "name": "08-image-input",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "name": "09-tool-call",
+      "ok": true,
+      "producedToolUse": true
+    },
+    {
+      "name": "10-model-switch",
+      "ok": true
+    }
+  ]
+}

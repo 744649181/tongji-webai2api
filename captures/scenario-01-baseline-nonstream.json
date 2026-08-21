@@ -1,0 +1,27 @@
+{
+  "capturedAt": "2026-08-21T11:18:40.944Z",
+  "scenario": "baseline: short prompt, no stream",
+  "result": {
+    "ok": true,
+    "status": 200,
+    "elapsedMs": 502,
+    "stream": false,
+    "contentType": "application/json",
+    "body": {
+      "id": "chatcmpl-1787311120940",
+      "object": "chat.completion",
+      "created": 1787311120,
+      "model": "Qwen3-235B",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "Hi there! Hello!"
+          },
+          "finish_reason": "stop"
+        }
+      ]
+    }
+  }
+}

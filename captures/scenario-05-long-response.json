@@ -1,0 +1,18 @@
+{
+  "capturedAt": "2026-08-21T11:19:30.703Z",
+  "scenario": "long response: 400-word essay",
+  "result": {
+    "ok": true,
+    "status": 200,
+    "elapsedMs": 21373,
+    "stream": true,
+    "contentType": "text/event-stream",
+    "sseFrameCount": 492,
+    "finishReason": "stop",
+    "usage": null,
+    "contentLength": 2534,
+    "reasoningLength": 0,
+    "contentPreview": "The MNIST dataset is a widely used collection of handwritten digits that serves as a benchmark in the field of machine learning and computer vision. It consists of 70,000 grayscale images of digits fr",
+    "reasoningPreview": ""
+  }
+}

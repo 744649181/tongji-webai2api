@@ -1,0 +1,10 @@
+{
+  "capturedAt": "2026-08-21T11:19:38.560Z",
+  "scenario": "model switch: same conversation, different model",
+  "result": {
+    "ok": true,
+    "model1": "Qwen3-235B",
+    "model2": "GLM-5.2",
+    "switched": true
+  }
+}

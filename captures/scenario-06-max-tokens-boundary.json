@@ -1,0 +1,27 @@
+{
+  "capturedAt": "2026-08-21T11:19:31.604Z",
+  "scenario": "max_tokens=16384 (the documented upper bound)",
+  "result": {
+    "ok": true,
+    "status": 200,
+    "elapsedMs": 900,
+    "stream": false,
+    "contentType": "application/json",
+    "body": {
+      "id": "chatcmpl-1787311171602",
+      "object": "chat.completion",
+      "created": 1787311171,
+      "model": "Qwen3-235B",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+          },
+          "finish_reason": "stop"
+        }
+      ]
+    }
+  }
+}
