@@ -191,6 +191,147 @@ Run `curl http://127.0.0.1:3000/v1/models -H "Authorization: Bearer $KEY"` for t
 
 ---
 
+## Anthropic-protocol API
+
+The server also exposes an Anthropic-protocol surface so you can use
+the Anthropic SDK (`@anthropic-ai/sdk`) or the Claude Code CLI
+without client-side changes. Both surfaces share the same auth token
+(`data/config.yaml#server.auth`); dispatch is header-based
+(`x-api-key` -> Anthropic, `Authorization: Bearer` -> OpenAI).
+
+### Quick start with Claude Code
+
+```bash
+export ANTHROPIC_BASE_URL=http://127.0.0.1:3000
+export ANTHROPIC_API_KEY=<auth from data/config.yaml>
+claude "Hello, world"
+```
+
+### `curl` example
+
+```bash
+KEY=$(grep "auth:" data/config.yaml | head -1 | awk '{print $2}')
+
+curl -N http://127.0.0.1:3000/v1/messages \
+  -H "x-api-key: $KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "content-type: application/json" \
+  -d '{
+    "model": "claude-sonnet-4-5",
+    "max_tokens": 256,
+    "messages": [{"role": "user", "content": "Hello"}]
+  }'
+```
+
+### Model aliases
+
+| Anthropic name | Tongji model |
+|----------------|--------------|
+| `claude-sonnet-4-5` | `DeepSeek-V4-Pro` (default; balanced) |
+| `claude-haiku-4-5`  | `DeepSeek-V4-Flash` (faster, lighter) |
+| `claude-opus-4-1`   | `DeepSeek-R1` (reasoning) |
+
+Stable date tags (`claude-sonnet-4-5-20250929` etc.) resolve to the
+same targets. Raw Tongji model names (`DeepSeek-V4-Pro`, `GLM-5.1`,
+etc.) pass through unchanged. Override per alias in
+`data/config.yaml#anthropic.modelMap`.
+
+### Supported features
+
+- Chat (streaming + non-streaming)
+- Extended thinking (`thinking: {type: "enabled", budget_tokens: N}`)
+- Multi-turn conversations (server-side `SessionID` preserves history)
+- Soft-synthesized tool use: tool schemas are appended to the prompt;
+  the model's output is scanned for `<tool_use>{...}</tool_use>` JSON
+  blocks and reconstructed as Anthropic `tool_use` content blocks.
+- Token counting via `/v1/messages/count_tokens` (estimate: chars / 4)
+
+### Limitations
+
+- **Vision / image inputs** -- not supported (return 400). Tongji
+  hiagent has no vision model.
+- **Prompt caching** -- ignored. Tongji has no `cache_control` hook.
+- **Tool calling is best-effort**: depends on the upstream model's
+  instruction-following. Use `claude-sonnet-4-5` (DeepSeek-V4-Pro)
+  for best results.
+
+### Verification
+
+```bash
+node --test tests/anthropic/*.mjs                   # 46 unit + integration tests
+node scripts/smoke-test-anthropic.mjs              # 9-case live SDK test (requires running server + SSO)
+```
+
+---
+
+## Smart login lifecycle
+
+A single command starts the server, walks you through SSO only when the
+session has expired, and silently re-authenticates if a request hits a
+401 mid-session. Built on top of the legacy `login.bat / start.bat`
+flow; both remain supported.
+
+### Quick start
+
+```bash
+npm run up
+```
+
+That's it. The first run pops up a browser for SSO; subsequent runs
+start the server with no interaction. `npm run status` shows login age,
+keychain health, and server status in one view.
+
+### Commands
+
+| Command | Purpose |
+|---------|---------|
+| `npm run up` | smart start: probe SSO, login if needed, spawn supervisor |
+| `npm run down` | graceful stop (via supervisor IPC + PID fallback) |
+| `npm run status` | unified status: PID, port, login age, keychain, last log lines |
+| `npm run login` | force a fresh SSO + encrypt session state |
+
+Legacy `login.bat/sh`, `start.bat/sh`, etc. continue to work (they do
+extra things like killing stuck camoufox processes and live health
+probes). For most users, `npm run up` is enough.
+
+### Encryption model
+
+- Session cookies + csrf are captured after SSO and encrypted with
+  **AES-256-GCM** before being written to `data/.sso.enc`.
+- The master key is **never on disk in plaintext**: it lives in the OS
+  keychain (Windows Credential Manager / macOS Keychain / Linux
+  libsecret) under service `tongji-webai2api`, account
+  `sso-master-key`.
+- Linux without libsecret falls back to `data/.master.key` (chmod 600)
+  with a warning in `npm run status`.
+
+### Watchdog (silent 401 recovery)
+
+When a Tongji upstream call returns 401, the server-side watchdog tries
+four recovery steps before giving up:
+
+1. **Silent re-inject**: decrypt `data/.sso.enc` and call Playwright's
+   `context.addCookies()` on the running browser context.
+2. **Session refresh endpoint** (if Tongji hiagent exposes one): a
+   best-effort `Action=RefreshSession` round-trip.
+3. **Interactive re-login**: desktop notification + browser popup.
+4. **Fail loud**: log critical + return 503 to the upstream caller.
+
+Recovery runs in a per-worker mutex, so concurrent 401s on the same
+worker are serialized; different workers recover independently.
+
+### Limitations
+
+- macOS / Linux first-time login still needs an interactive browser
+  popup. Once the session is captured, subsequent runs and watchdog
+  recoveries are click-free.
+- Linux without libsecret uses the file fallback (less secure at rest).
+- Watchdog's silent re-inject requires the worker to expose its
+  BrowserContext; current queue.js integration is detection-only
+  (full silent recovery is queued for the PoolManager refactor).
+
+---
+
 ## Architecture
 
 ```

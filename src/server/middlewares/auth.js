@@ -14,7 +14,8 @@ import { ERROR_CODES } from '../errors.js';
  */
 export function checkAuth(req, authToken) {
     const authHeader = req.headers['authorization'];
-    return authHeader === `Bearer ${authToken}`;
+    const apiKeyHeader = req.headers['x-api-key'];
+    return authHeader === `Bearer ${authToken}` || apiKeyHeader === authToken;
 }
 
 /**

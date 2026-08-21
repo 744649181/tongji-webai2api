@@ -16,6 +16,25 @@ server:
   # 图片生成结果返回 Markdown 格式
   imageMarkdown: false
 
+# ========================================
+# Anthropic-protocol surface (optional)
+# ========================================
+# Lets Anthropic SDK / Claude Code CLI call the server via /v1/messages,
+# /v1/models, and /v1/messages/count_tokens. Shares server.auth above
+# for the x-api-key header.
+anthropic:
+  # Override default Claude-name -> Tongji-model alias mapping.
+  # (Defaults shipped in src/server/api/anthropic/modelMap.js)
+  # Anything left commented / unset uses the defaults:
+  #   claude-sonnet-4-5 -> DeepSeek-V4-Pro
+  #   claude-haiku-4-5  -> DeepSeek-V4-Flash
+  #   claude-opus-4-1   -> DeepSeek-R1
+  # Plus their stable date tags. Non-claude-* names pass through unchanged.
+  modelMap:
+    # claude-sonnet-4-5: DeepSeek-V4-Pro
+    # claude-haiku-4-5: DeepSeek-V4-Flash
+    # claude-opus-4-1: DeepSeek-R1
+
 backend:
   # ========================================
   # Pool 配置
@@ -85,6 +104,18 @@ backend:
             #   doubao_text            (豆包 文本生成)
             #   test                   (浏览器检测，仅供调试使用)
             type: lmarena              # 适配器类型
+
+      # ------------------------------------------------
+      # [实例 tongji-webai2api 同济智能体平台] -- 本 fork 的 headline 适配器
+      # userDataMark=tongji -> 数据目录: data/camoufoxUserData_tongji
+      # 这与 scripts/cli/login.mjs 的 COOKIE_PATH 硬编码必须保持一致。
+      # 如果上游重新合并时不带这个实例，login.mjs 会找不到 Worker 并进入安全模式。
+      # ------------------------------------------------
+      - name: "browser_tongji"
+        userDataMark: "tongji"
+        workers:
+          - name: "tongji"
+            type: tongji
 
       # ------------------------------------------------
       # 以下为多实例配置示例 (默认注释)
@@ -214,3 +245,14 @@ browser:
     # 代理认证 (可选)
     # user: username
     # passwd: password
+
+# ========================================
+# Smart login (informational only)
+# ========================================
+# Behavior is hardcoded in src/backend/auth/. The fields below document
+# what is enabled by default and may be referenced by future code paths.
+auth:
+  encryptAlgo: "aes-256-gcm"
+  keychainFallback: "auto"  # auto | always | never -- Linux file fallback policy
+  ssoBlobPath: "data/.sso.enc"
+  staleAfterDays: 30

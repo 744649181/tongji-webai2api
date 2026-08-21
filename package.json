@@ -9,7 +9,11 @@
 		"start": "node supervisor.js",
 		"genkey": "node scripts/genkey.js",
 		"init": "node scripts/init.js",
-		"postinstall": "node scripts/postinstall.js"
+		"postinstall": "node scripts/postinstall.js",
+		"up": "node scripts/cli/up.mjs",
+		"down": "node scripts/cli/down.mjs",
+		"status": "node scripts/cli/status.mjs",
+		"login": "node scripts/cli/login.mjs"
 	},
 	"imports": {
 		"#config": "./src/config/index.js",
@@ -19,6 +23,7 @@
 	},
 	"dependencies": {
 		"@inquirer/prompts": "^8.0.1",
+		"@napi-rs/keyring": "^1.3.0",
 		"better-sqlite3": "^12.5.0",
 		"camoufox-js": "^0.8.3",
 		"compressing": "^2.0.0",
@@ -31,5 +36,8 @@
 		"sharp": "^0.34.5",
 		"socks-proxy-agent": "^8.0.5",
 		"yaml": "^2.8.2"
+	},
+	"devDependencies": {
+		"@anthropic-ai/sdk": "^0.120.0"
 	}
 }

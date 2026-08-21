@@ -19,6 +19,15 @@ import { ERROR_CODES } from './errors.js';
 import { incrementSuccess, incrementFailed } from '../utils/stats.js';
 import { createRecord, updateRecord, processResponseMedia } from '../utils/history.js';
 
+// v2.1 (smart login): detect 401-shaped errors at the queue layer. The actual
+// watchdog recovery (with real worker context) is wired in
+// PoolManager._safeExecuteWorker -- queue.js only logs a final warning if a
+// 401 bubbles up after recovery has been exhausted.
+function looksLike401(msg) {
+    if (!msg || typeof msg !== 'string') return false;
+    return /\b(401|403)\b/.test(msg) || /unauthor/i.test(msg) || /session[ _-]?expired/i.test(msg);
+}
+
 /**
  * @typedef {object} TaskContext
  * @property {import('http').IncomingMessage} req - HTTP 请求对象
@@ -167,6 +176,13 @@ export function createQueueManager(queueConfig, callbacks) {
 
             // 处理结果
             if (result.error) {
+                // v2.1 (smart login): PoolManager._safeExecuteWorker already attempted
+                // watchdog recovery for 401-shaped errors. If we see one here it
+                // means recovery was exhausted (Try 4 returned 503). Log so the
+                // user can take action (e.g., `npm run login`).
+                if (looksLike401(result.error)) {
+                    logger.warn('服务器', 'SSO cookie rejected and watchdog recovery exhausted; client should re-login via `npm run login`');
+                }
                 // 生成失败：记录统计和历史
                 await incrementFailed();
                 try {

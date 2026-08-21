@@ -6,6 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import { createOpenAIRouter } from './openai/routes.js';
+import { createAnthropicRouter } from './anthropic/routes.js';
 import { createAdminRouter } from './admin/routes.js';
 import { createAuthMiddleware } from '../middlewares/auth.js';
 
@@ -43,6 +44,19 @@ export function createGlobalRouter(context) {
 
     // 创建子路由处理器
     const handleOpenAIRequest = loginMode ? null : createOpenAIRouter(context);
+    const handleAnthropicRequest = createAnthropicRouter({
+        apiKey: authToken,
+        modelMapOverride: config.anthropic?.modelMap || null,
+        addTask: (req, meta) => queueManager.addTask(
+            { ...req, requestId: meta.id },
+            { ...meta, onDelta: meta.onDelta }
+        ),
+        rawModels: () => {
+            const list = typeof getModels === 'function' ? getModels() : [];
+            // getModels returns either an array or an object with .data
+            return Array.isArray(list) ? list : (list?.data || []);
+        },
+    });
     const handleAdminRequest = createAdminRouter({ config, queueManager, tempDir, getSafeMode });
 
     /**
@@ -100,6 +114,12 @@ export function createGlobalRouter(context) {
 
         // OpenAI API (/v1)
         if (pathname.startsWith('/v1')) {
+            // Anthropic-protocol surface: dispatch by x-api-key header before
+            // any OpenAI-specific gating. Shares auth token with OpenAI but uses
+            // a different header. The Anthropic router validates auth itself.
+            if (req.headers['x-api-key']) {
+                return handleAnthropicRequest(req, res);
+            }
             // 安全模式下禁用 OpenAI API
             const safeMode = getSafeMode?.();
             if (safeMode?.enabled) {
